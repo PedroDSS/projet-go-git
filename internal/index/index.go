@@ -22,9 +22,9 @@ func Add(filename string) {
     f.Seek(0, 0)
     content, _ := io.ReadAll(f)
 
-    os.WriteFile(".mygit/objects/"+hash, content, 0644)
+    os.WriteFile(".goit/objects/"+hash, content, 0644)
     entry := hash + " " + filename + "\n"
-    os.WriteFile(".mygit/index", []byte(entry), 0644)
+    os.WriteFile(".goit/index", []byte(entry), 0644)
 
     fmt.Println("Added", filename)
 }

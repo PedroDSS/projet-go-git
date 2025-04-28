@@ -8,7 +8,7 @@ import (
 )
 
 func CreateTree() string {
-    indexContent, err := os.ReadFile(".mygit/index")
+    indexContent, err := os.ReadFile(".goit/index")
     if err != nil {
         panic(err)
     }
@@ -17,7 +17,7 @@ func CreateTree() string {
     hash := sha1.Sum([]byte(treeContent))
     hashStr := fmt.Sprintf("%x", hash[:])
 
-    os.WriteFile(".mygit/objects/"+hashStr, []byte(treeContent), 0644)
+    os.WriteFile(".goit/objects/"+hashStr, []byte(treeContent), 0644)
     return hashStr
 }
 
@@ -27,6 +27,6 @@ func CreateCommit(treeHash string, message string) string {
     hash := sha1.Sum([]byte(content))
     hashStr := fmt.Sprintf("%x", hash[:])
 
-    os.WriteFile(".mygit/objects/"+hashStr, []byte(content), 0644)
+    os.WriteFile(".goit/objects/"+hashStr, []byte(content), 0644)
     return hashStr
 }

@@ -21,6 +21,10 @@
 go.work
 go.work.sum
 
+# Goit folder.
+.goit
+goit
+
 # env file
 .env
 

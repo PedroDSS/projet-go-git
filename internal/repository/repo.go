@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"projet-go-git/internal/objects"
+	"strings"
 )
 
 func Init() {
@@ -19,4 +20,16 @@ func Commit(message string) {
     commitHash := objects.CreateCommit(treeHash, message)
     os.WriteFile(".goit/refs/heads/master", []byte(commitHash), 0644)
     fmt.Println("Committed:", commitHash)
+}
+
+func SetHEAD(ref string) error {
+	return os.WriteFile(".goit/HEAD", []byte(ref), 0644)
+}
+
+func GetHEAD() string {
+	data, err := os.ReadFile(".goit/HEAD")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }

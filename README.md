@@ -24,23 +24,40 @@ git clone https://github.com/PedroDSS/projet-go-git/tree/main
 cd projet-go-git
 ```
 
-### Build le package (Optionnel)
+### Installer Goit (Linux/MacOS)
+## Compiler le programme
 ```bash
+# Il faut se situer sur le chemin du dossier avant.
 go build -o goit ./cmd/goit
 ```
 
-### Initialiser le repository
+## Déplacer l'executable dans le $PATH
 ```bash
+sudo mv goit /usr/local/bin
+```
+
+## Vérifier le fonctionnement / Initialiser le repository
+```bash
+# Si le programme a été installé (executable partout)
+goit help
 # Si le package a été build
 ./goit init
 # Sinon
 go run ./cmd/goit init
 ```
 
-### Voir les commandes disponibles
+## Voir les commandes disponibles
 ```bash
+# Si le programme a été installé (executable partout)
+goit help
 # Si le package a été build
 ./goit help
 # Sinon
 go run ./cmd/goit help
+```
+
+### Désintaller
+## Supprimer l'executable
+```bash
+sudo rm /usr/local/bin/goit
 ```

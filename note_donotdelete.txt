@@ -1,0 +1,11 @@
+Notes pour projet Git :
+- Y a des branches.
+- Historiques.
+- Faire un merge. (Quel bloc de code a été fait a quel heure, les différences, etc...)
+
+Element important :
+- Tu ne sauvegarde qu'en event sourcing (tu ne sauvegarde que les logs d'ajouts)
+
+Bonus :
+
+Pas de boucle for (librairie low, reduce, etc...)

@@ -2,33 +2,52 @@ package log
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"projet-go-git/internal/objects"
+	"projet-go-git/internal/repository"
 	"strings"
 )
 
 func ShowLog() {
-	head, err := os.ReadFile(".goit/HEAD")
+	currentHash, err := repository.GetCurrentCommitHash()
 	if err != nil {
-		fmt.Println("Unable to read HEAD")
+		fmt.Printf("Failed to get current commit: %v\n", err)
 		return
 	}
 
-	hash := string(head)
+	if currentHash == "" {
+		fmt.Println("No commits yet")
+		return
+	}
+
+	hash := currentHash
 	for hash != "" {
-		path := filepath.Join(".goit", "objects", hash)
-		data, err := os.ReadFile(path)
+		content, err := objects.ReadObject(hash)
 		if err != nil {
-			fmt.Println("Error reading commit object:", err)
+			fmt.Printf("Error reading commit %s: %v\n", hash[:8], err)
 			return
 		}
 
-		lines := string(data)
-		fmt.Println("Commit:", hash)
-		fmt.Println(lines)
-		fmt.Println("----------------------")
+		fmt.Printf("commit %s\n", hash)
+		printCommitInfo(content)
+		fmt.Println("----------------------------------------")
 
-		hash = extractParentHash(lines)
+		hash = extractParentHash(content)
+	}
+}
+
+func printCommitInfo(content string) {
+	lines := strings.Split(content, "\n")
+	inMessage := false
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "date ") {
+			fmt.Printf("Date: %s\n", strings.TrimPrefix(line, "date "))
+		} else if line == "" && !inMessage {
+			inMessage = true
+			fmt.Println()
+		} else if inMessage {
+			fmt.Printf("    %s\n", line)
+		}
 	}
 }
 

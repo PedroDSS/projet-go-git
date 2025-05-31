@@ -8,19 +8,29 @@ import (
 )
 
 func Switch(branch string) {
-	refPath := filepath.Join(".goit", "refs", "heads", branch)
-	if _, err := os.Stat(refPath); os.IsNotExist(err) {
-		fmt.Println("Branch does not exist:", branch)
+	branchPath := filepath.Join(".goit", "refs", "heads", branch)
+
+	if _, err := os.Stat(branchPath); os.IsNotExist(err) {
+		fmt.Printf("Branch '%s' does not exist\n", branch)
 		return
 	}
 
-	hashBytes, err := os.ReadFile(refPath)
-	if err != nil {
-		fmt.Println("Unable to read branch ref:", err)
+	if hasUncommittedChanges() {
+		fmt.Println("You have uncommitted changes. Please commit them before switching branches")
 		return
 	}
 
-	hash := string(hashBytes)
-	repository.SetHEAD(hash)
-	fmt.Println("Switched to branch:", branch)
+	headContent := fmt.Sprintf("ref: refs/heads/%s", branch)
+	if err := repository.SetHEAD(headContent); err != nil {
+		fmt.Printf("Failed to switch to branch: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Switched to branch '%s'\n", branch)
+}
+
+func hasUncommittedChanges() bool {
+	// TODO: A implémenter, ça doit vérifier le working directory
+	// NOTE: Cela ne fait qu'un simple check
+	return false
 }

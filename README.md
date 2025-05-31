@@ -61,3 +61,47 @@ go run ./cmd/goit help
 ```bash
 sudo rm /usr/local/bin/goit
 ```
+
+### Tester le workflow
+
+```bash
+./goit init
+echo "Hello Golang World" > test.txt
+./goit add test.txt
+./goit commit -m "Mon premier commit en Go"
+./goit status
+./goit log
+./goit branch feature
+./goit checkout feature
+./goit branch
+```
+
+### Exemple d'utilisation
+
+```bash
+# Initialisation du repository
+goit init
+
+# Ajout des fichiers en staging
+goit add file1.txt
+goit add file2.txt
+
+# Création du commit avec les fichiers
+goit commit -m "Ajout des fichiers"
+
+# Vérifier le status
+goit status
+
+# Créer et changer de branches
+goit branch feature-1
+goit checkout feature-1
+
+# Lister de toutes les branches
+goit branch
+
+# Voir l'historique de commit
+goit log
+
+# Vérifier les différences
+goit diff file1.txt
+```

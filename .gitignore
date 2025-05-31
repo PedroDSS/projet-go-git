@@ -21,5 +21,31 @@
 go.work
 go.work.sum
 
+# Goit folder.
+.goit
+goit
+
 # env file
 .env
+
+# Fichiers binaires générés par Go
+/bin/
+/pkg/
+/vendor/
+
+# Fichiers temporaires et caches
+*.log
+*.out
+*.exe
+*.test
+*.cache
+
+# Fichiers générés par l'IDE
+.vscode/
+/.idea/
+
+# Fichiers générés par GoLand
+*.iml
+
+# Fichiers de configuration locaux (Go)
+.golock

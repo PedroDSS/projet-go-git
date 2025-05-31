@@ -31,7 +31,7 @@ cd projet-go-git
 go build -o goit ./cmd/goit
 ```
 
-## Déplacer l'executable dans le $PATH
+## (Optionnel) Déplacer l'executable dans le $PATH (Si on veut pouvoir l'utiliser partout)
 ```bash
 sudo mv goit /usr/local/bin
 ```
@@ -39,7 +39,7 @@ sudo mv goit /usr/local/bin
 ## Vérifier le fonctionnement / Initialiser le repository
 ```bash
 # Si le programme a été installé (executable partout)
-goit help
+goit init
 # Si le package a été build
 ./goit init
 # Sinon
@@ -57,7 +57,7 @@ go run ./cmd/goit help
 ```
 
 ### Désintaller
-## Supprimer l'executable
+## Supprimer l'executable (Si il a été déplacer pouvoir l'utiliser partout)
 ```bash
 sudo rm /usr/local/bin/goit
 ```

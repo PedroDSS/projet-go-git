@@ -20,7 +20,8 @@ Commands:
 	init                   Initialize a new goit repository (.goit/)
 	add <file>             Add a file to the staging area
 	commit -m <message>    Commit the staged changes with a message
-	log                    Show commit history
+	log                    Show detailed commit history
+	log --compact          Show commit history compact
 	status                 Show changes in the working directory
 	branch <name>          Create a new branch
 	checkout <name>        Switch to a branch
@@ -31,12 +32,12 @@ Examples:
 	goit add fichier.txt
 	goit commit -m "Initial commit"
 	goit log
+	goit log --compact
 	goit status
 	goit branch feature-1
 	goit checkout feature-1
 `)
 }
-
 
 func main() {
 	if len(os.Args) < 2 {
@@ -60,7 +61,11 @@ func main() {
 		}
 		repository.Commit(os.Args[3])
 	case "log":
-		log.ShowLog()
+		if len(os.Args) > 2 && (os.Args[2] == "--compact" || os.Args[2] == "-c") {
+			log.ShowLogShort()
+		} else {
+			log.ShowLog()
+		}
 	case "status":
 		status.ShowStatus()
 	case "branch":

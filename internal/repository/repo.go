@@ -8,11 +8,18 @@ import (
 	"strings"
 )
 
+/**
+ * Vérifie si le répertoire actuel est un repository goit
+ */
 func IsGoitRepo() bool {
 	_, err := os.Stat(".goit")
 	return err == nil
 }
 
+/**
+ * Initialise un nouveau repository goit
+ * Crée la structure de dossiers et les fichiers de base
+ */
 func Init() {
 	if IsGoitRepo() {
 		fmt.Println("Already a goit repository")
@@ -40,9 +47,19 @@ func Init() {
 		return
 	}
 
-	fmt.Println("Initialized empty Goit repository in .goit/")
+	// Crée un index vide
+	if err := os.WriteFile(".goit/index", []byte(""), 0644); err != nil {
+		fmt.Printf("Failed to create index: %v\n", err)
+		return
+	}
+
+	fmt.Println("Initialized empty goit repository")
 }
 
+/**
+ * Crée un nouveau commit avec les fichiers de l'index
+ * Gère les commits parents et met à jour les références
+ */
 func Commit(message string) {
 	indexPath := filepath.Join(".goit", "index")
 	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
@@ -50,42 +67,49 @@ func Commit(message string) {
 		return
 	}
 
-	treeHash, err := objects.CreateTree()
-	if err != nil {
-		fmt.Printf("Failed to create tree: %v\n", err)
-		return
-	}
+	treeHash := objects.CreateTree()
 
-	// Get parent commit if exists
+	// Récupérer le hash du commit parent (HEAD actuel)
 	var parentHash string
-	currentBranch, err := GetCurrentBranch()
-	if err != nil {
-		fmt.Printf("Error getting current branch: %v\n", err)
-		return
+	headContent, err := GetHEAD()
+	if err == nil && strings.HasPrefix(headContent, "ref: ") {
+		refPath := strings.TrimPrefix(headContent, "ref: ")
+		refFile := filepath.Join(".goit", refPath)
+		if content, err := os.ReadFile(refFile); err == nil {
+			parentHash = strings.TrimSpace(string(content))
+		}
 	}
 
-	branchPath := filepath.Join(".goit", "refs", "heads", currentBranch)
-	if data, err := os.ReadFile(branchPath); err == nil {
-		parentHash = strings.TrimSpace(string(data))
+	commitHash := objects.CreateCommit(treeHash, message, parentHash)
+
+	// Résoudre la référence HEAD actuelle et mettre à jour
+	headContent, err = GetHEAD()
+	if err == nil && strings.HasPrefix(headContent, "ref: ") {
+		refPath := strings.TrimPrefix(headContent, "ref: ")
+		refFile := filepath.Join(".goit", refPath)
+		if err := os.WriteFile(refFile, []byte(commitHash), 0644); err != nil {
+			fmt.Printf("Failed to update branch reference: %v\n", err)
+			return
+		}
+	} else {
+		// Si HEAD contient directement un hash, utiliser master par défaut
+		refFile := filepath.Join(".goit", "refs", "heads", "master")
+		if err := os.WriteFile(refFile, []byte(commitHash), 0644); err != nil {
+			fmt.Printf("Failed to update master reference: %v\n", err)
+			return
+		}
 	}
 
-	commitHash, err := objects.CreateCommit(treeHash, message, parentHash)
-	if err != nil {
-		fmt.Printf("Failed to create commit: %v\n", err)
-		return
-	}
-
-	if err := os.WriteFile(branchPath, []byte(commitHash), 0644); err != nil {
-		fmt.Printf("Failed to update branch reference: %v\n", err)
-		return
-	}
-
-	// Nettoyer l'index après le commit.
+	// Vider l'index après le commit
 	os.Remove(indexPath)
 
 	fmt.Printf("Committed: %s\n", commitHash[:8])
 }
 
+/**
+ * Récupère le nom de la branche actuelle
+ * Retourne "HEAD" si en état détaché
+ */
 func GetCurrentBranch() (string, error) {
 	head, err := GetHEAD()
 	if err != nil {
@@ -99,10 +123,17 @@ func GetCurrentBranch() (string, error) {
 	return "HEAD", nil // Etat HEAD détaché
 }
 
+/**
+ * Met à jour la référence HEAD
+ */
 func SetHEAD(ref string) error {
 	return os.WriteFile(".goit/HEAD", []byte(ref), 0644)
 }
 
+/**
+ * Lit le contenu du fichier HEAD
+ * Retourne le contenu et une erreur si problème
+ */
 func GetHEAD() (string, error) {
 	data, err := os.ReadFile(".goit/HEAD")
 	if err != nil {
@@ -111,6 +142,10 @@ func GetHEAD() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
+/**
+ * Récupère le hash du commit actuel
+ * Résout HEAD vers le hash du commit si nécessaire
+ */
 func GetCurrentCommitHash() (string, error) {
 	head, err := GetHEAD()
 	if err != nil {

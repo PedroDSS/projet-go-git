@@ -49,3 +49,6 @@ goit
 
 # Fichiers de configuration locaux (Go)
 .golock
+
+# Projet de test
+projet-test/

@@ -11,9 +11,110 @@ import (
 	"strings"
 )
 
+/**
+ * Calcule le hash SHA1 d'un fichier
+ * Utilisée pour comparer les versions de fichiers
+ */
+func hashFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha1.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+/**
+ * Récupère les fichiers du dernier commit avec leurs hashes
+ * Parse le commit et le tree pour obtenir la liste des fichiers
+ */
+func getLastCommitFiles() map[string]string {
+	commitFiles := make(map[string]string)
+
+	head, err := os.ReadFile(".goit/HEAD")
+	if err != nil {
+		return commitFiles
+	}
+
+	headContent := strings.TrimSpace(string(head))
+	var commitHash string
+
+	if strings.HasPrefix(headContent, "ref: ") {
+		refPath := strings.TrimPrefix(headContent, "ref: ")
+		refFile := filepath.Join(".goit", refPath)
+		if content, err := os.ReadFile(refFile); err == nil {
+			commitHash = strings.TrimSpace(string(content))
+		}
+	} else {
+		commitHash = headContent
+	}
+
+	if commitHash == "" {
+		return commitFiles
+	}
+
+	commitPath := filepath.Join(".goit", "objects", commitHash)
+	commitData, err := os.ReadFile(commitPath)
+	if err != nil {
+		return commitFiles
+	}
+
+	lines := strings.Split(string(commitData), "\n")
+	var treeHash string
+	for _, line := range lines {
+		if strings.HasPrefix(line, " tree ") {
+			treeHash = strings.TrimPrefix(line, " tree ")
+			break
+		}
+	}
+
+	if treeHash == "" {
+		return commitFiles
+	}
+
+	treePath := filepath.Join(".goit", "objects", treeHash)
+	treeData, err := os.ReadFile(treePath)
+	if err != nil {
+		return commitFiles
+	}
+
+	treeLines := strings.Split(string(treeData), "\n")
+	for _, line := range treeLines {
+		if line != "" && !strings.HasPrefix(line, "tree") {
+			parts := strings.SplitN(line, " ", 2)
+			if len(parts) == 2 {
+				hash, filename := parts[0], parts[1]
+				commitFiles[filename] = hash
+			}
+		}
+	}
+
+	return commitFiles
+}
+
+/**
+ * Vérifie si un fichier est suivi par goit
+ * Un fichier est suivi s'il est dans l'index ou dans le dernier commit
+ */
+func isTracked(filename string, indexEntries map[string]string, commitEntries map[string]string) bool {
+	_, existsInIndex := indexEntries[filename]
+	_, existsInCommit := commitEntries[filename]
+	return existsInIndex || existsInCommit
+}
+
+/**
+ * Affiche le statut du repository
+ * Montre les fichiers staged, modifiés et non suivis
+ */
 func ShowStatus() {
 	fmt.Printf("On branch %s\n\n", getCurrentBranchName())
 
+	// Charger l'index
 	entries, err := index.GetIndexEntries()
 	var indexEntries map[string]string
 
@@ -26,6 +127,10 @@ func ShowStatus() {
 		}
 	}
 
+	// Charger les fichiers du dernier commit
+	commitEntries := getLastCommitFiles()
+
+	// Afficher les changements à commiter (fichiers dans l'index)
 	if len(indexEntries) > 0 {
 		fmt.Println("Changes to be committed:")
 		for filename := range indexEntries {
@@ -53,12 +158,28 @@ func ShowStatus() {
 			return nil
 		}
 
-		if storedHash, isTracked := indexEntries[path]; isTracked {
-			if hasFileChanged(path, storedHash) {
-				modified = append(modified, path)
+		// Normaliser le chemin (enlever le ./ au début)
+		relPath := strings.TrimPrefix(path, "./")
+
+		// Vérifier si le fichier est suivi
+		if isTracked(relPath, indexEntries, commitEntries) {
+			// Calculer le hash actuel du fichier
+			currentHash, err := hashFile(path)
+			if err != nil {
+				return nil // Ignorer les erreurs de lecture
+			}
+
+			// Comparer avec le hash stocké (priorité à l'index, puis au commit)
+			expectedHash := indexEntries[relPath]
+			if expectedHash == "" {
+				expectedHash = commitEntries[relPath]
+			}
+
+			if expectedHash != "" && currentHash != expectedHash {
+				modified = append(modified, relPath)
 			}
 		} else {
-			untracked = append(untracked, path)
+			untracked = append(untracked, relPath)
 		}
 
 		return nil
@@ -91,6 +212,10 @@ func ShowStatus() {
 	}
 }
 
+/**
+ * Récupère le nom de la branche actuelle
+ * Utilise repository.GetCurrentBranch() pour la cohérence
+ */
 func getCurrentBranchName() string {
 	branch, err := repository.GetCurrentBranch()
 	if err != nil {
@@ -99,6 +224,10 @@ func getCurrentBranchName() string {
 	return branch
 }
 
+/**
+ * Charge l'index directement depuis le fichier
+ * Fallback si index.GetIndexEntries() échoue
+ */
 func loadIndexDirect() map[string]string {
 	indexEntries := make(map[string]string)
 	indexContent, err := os.ReadFile(".goit/index")
@@ -120,6 +249,10 @@ func loadIndexDirect() map[string]string {
 	return indexEntries
 }
 
+/**
+ * Vérifie si un répertoire doit être ignoré
+ * Ignore .goit, .git et leurs sous-répertoires
+ */
 func shouldIgnoreDirectory(path string) bool {
 	ignoredDirs := []string{".goit", ".git"}
 	for _, ignored := range ignoredDirs {
@@ -130,6 +263,10 @@ func shouldIgnoreDirectory(path string) bool {
 	return false
 }
 
+/**
+ * Vérifie si un fichier doit être ignoré
+ * Ignore les fichiers système et les exécutables goit
+ */
 func shouldIgnoreFile(path string) bool {
 	if strings.HasPrefix(path, ".goit") || strings.HasPrefix(path, ".git") {
 		return true
@@ -152,6 +289,10 @@ func shouldIgnoreFile(path string) bool {
 	return false
 }
 
+/**
+ * Vérifie si un fichier a changé par rapport à sa version indexée
+ * Compare le hash actuel avec le hash stocké dans l'index
+ */
 func hasFileChanged(filename, indexHash string) bool {
 	currentHash, err := hashFile(filename)
 	if err != nil {
@@ -161,21 +302,10 @@ func hasFileChanged(filename, indexHash string) bool {
 	return currentHash != indexHash
 }
 
-func hashFile(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	h := sha1.New()
-	if _, err := io.Copy(h, file); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
-}
-
+/**
+ * Affiche les différences entre les fichiers staged et working
+ * Peut afficher les diffs pour un fichier spécifique ou tous les fichiers
+ */
 func ShowDiff(filename string) {
 	if filename == "" {
 		showAllDiffs()
@@ -184,6 +314,9 @@ func ShowDiff(filename string) {
 	showFileDiff(filename)
 }
 
+/**
+ * Affiche les différences pour tous les fichiers staged
+ */
 func showAllDiffs() {
 	indexEntries := loadIndexDirect()
 	if len(indexEntries) == 0 {
@@ -208,6 +341,10 @@ func showAllDiffs() {
 	}
 }
 
+/**
+ * Affiche les différences pour un fichier spécifique
+ * Compare la version staged avec la version working
+ */
 func showFileDiff(filename string) {
 	fmt.Printf("File: %s\n", filename)
 

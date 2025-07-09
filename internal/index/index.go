@@ -14,34 +14,57 @@ type IndexEntry struct {
 	Filename string
 }
 
-func addSingleFile(filename string, indexEntries map[string]string) error {
+/**
+ * Ajoute un fichier à l'index seulement s'il a changé ou n'est pas suivi
+ * Retourne true si le fichier a été ajouté, false sinon
+ */
+func addSingleFile(filename string, indexEntries map[string]string) (bool, error) {
 	if strings.HasPrefix(filename, ".goit") {
-		return nil
+		return false, nil
 	}
 
 	fileInfo, err := os.Stat(filename)
 	if err != nil {
-		return fmt.Errorf("error accessing file %s: %v", filename, err)
+		return false, fmt.Errorf("error accessing file %s: %v", filename, err)
 	}
 
 	if fileInfo.IsDir() {
-		return nil
+		return false, nil
 	}
 
+	// Calculer le hash actuel du fichier
 	hash, content, err := processFile(filename)
 	if err != nil {
-		return err
+		return false, err
 	}
 
+	// Vérifier si le fichier a changé par rapport à l'index
+	currentHash, existsInIndex := indexEntries[filename]
+	if existsInIndex && currentHash == hash {
+		// Le fichier n'a pas changé par rapport à l'index, ne pas l'ajouter
+		return false, nil
+	}
+
+	// Vérifier si le fichier a changé par rapport au dernier commit
+	lastCommitHash := getLastCommitHash(filename)
+	if lastCommitHash != "" && lastCommitHash == hash {
+		// Le fichier n'a pas changé par rapport au dernier commit, ne pas l'ajouter
+		return false, nil
+	}
+
+	// Le fichier a changé ou n'existe pas dans l'index/commit, l'ajouter
 	objectPath := filepath.Join(".goit", "objects", hash)
 	if err := os.WriteFile(objectPath, content, 0644); err != nil {
-		return fmt.Errorf("error storing object %s: %v", objectPath, err)
+		return false, fmt.Errorf("error storing object %s: %v", objectPath, err)
 	}
 
 	indexEntries[filename] = hash
-	return nil
+	return true, nil
 }
 
+/**
+ * Traite un fichier pour calculer son hash et récupérer son contenu
+ */
 func processFile(filename string) (string, []byte, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -67,6 +90,9 @@ func processFile(filename string) (string, []byte, error) {
 	return hash, content, nil
 }
 
+/**
+ * Charge les entrées de l'index depuis le fichier
+ */
 func loadIndexEntries() (map[string]string, error) {
 	indexEntries := make(map[string]string)
 	indexPath := filepath.Join(".goit", "index")
@@ -94,6 +120,9 @@ func loadIndexEntries() (map[string]string, error) {
 	return indexEntries, nil
 }
 
+/**
+ * Écrit les entrées de l'index dans le fichier
+ */
 func writeIndexEntries(indexEntries map[string]string) error {
 	var lines []string
 	for file, hash := range indexEntries {
@@ -109,6 +138,83 @@ func writeIndexEntries(indexEntries map[string]string) error {
 	return os.WriteFile(indexPath, []byte(content), 0644)
 }
 
+/**
+ * Récupère le hash d'un fichier depuis le dernier commit
+ */
+func getLastCommitHash(filename string) string {
+	// Lire HEAD
+	head, err := os.ReadFile(".goit/HEAD")
+	if err != nil {
+		return ""
+	}
+
+	headContent := strings.TrimSpace(string(head))
+	var commitHash string
+
+	if strings.HasPrefix(headContent, "ref: ") {
+		refPath := strings.TrimPrefix(headContent, "ref: ")
+		refFile := filepath.Join(".goit", refPath)
+		if content, err := os.ReadFile(refFile); err == nil {
+			commitHash = strings.TrimSpace(string(content))
+		}
+	} else {
+		commitHash = headContent
+	}
+
+	if commitHash == "" {
+		return ""
+	}
+
+	// Lire le commit
+	commitPath := filepath.Join(".goit", "objects", commitHash)
+	commitData, err := os.ReadFile(commitPath)
+	if err != nil {
+		return ""
+	}
+
+	// Extraire le tree hash
+	lines := strings.Split(string(commitData), "\n")
+	var treeHash string
+	for _, line := range lines {
+		if strings.HasPrefix(line, " tree ") {
+			treeHash = strings.TrimPrefix(line, " tree ")
+			break
+		}
+	}
+
+	if treeHash == "" {
+		return ""
+	}
+
+	// Lire le tree
+	treePath := filepath.Join(".goit", "objects", treeHash)
+	treeData, err := os.ReadFile(treePath)
+	if err != nil {
+		return ""
+	}
+
+	// Parser le tree pour trouver le fichier
+	treeLines := strings.Split(string(treeData), "\n")
+	for _, line := range treeLines {
+		if line != "" && !strings.HasPrefix(line, "tree") {
+			parts := strings.SplitN(line, " ", 2)
+			if len(parts) == 2 {
+				hash, file := parts[0], parts[1]
+				if file == filename {
+					return hash
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+/**
+ * Ajoute des fichiers à l'index
+ * Si filename est ".", ajoute seulement les fichiers modifiés ou non suivis
+ * Sinon, ajoute le fichier spécifié
+ */
 func Add(filename string) {
 	indexEntries, err := loadIndexEntries()
 	if err != nil {
@@ -129,9 +235,10 @@ func Add(filename string) {
 				return nil
 			}
 
-			if err := addSingleFile(path, indexEntries); err != nil {
+			wasAdded, err := addSingleFile(path, indexEntries)
+			if err != nil {
 				fmt.Printf("Warning: %v\n", err)
-			} else {
+			} else if wasAdded {
 				fmt.Printf("Added %s\n", path)
 				addedCount++
 			}
@@ -153,11 +260,14 @@ func Add(filename string) {
 			return
 		}
 
-		if err := addSingleFile(filename, indexEntries); err != nil {
+		wasAdded, err := addSingleFile(filename, indexEntries)
+		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
-		fmt.Printf("Added %s\n", filename)
+		if wasAdded {
+			fmt.Printf("Added %s\n", filename)
+		}
 	}
 
 	if err := writeIndexEntries(indexEntries); err != nil {
@@ -165,6 +275,9 @@ func Add(filename string) {
 	}
 }
 
+/**
+ * Récupère toutes les entrées de l'index
+ */
 func GetIndexEntries() ([]IndexEntry, error) {
 	indexEntries, err := loadIndexEntries()
 	if err != nil {

@@ -219,7 +219,7 @@ func ShowStatus() {
 func getCurrentBranchName() string {
 	branch, err := repository.GetCurrentBranch()
 	if err != nil {
-		return "master" // nom de branche par défaut
+		return "main"
 	}
 	return branch
 }

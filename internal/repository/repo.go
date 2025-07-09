@@ -40,8 +40,8 @@ func Init() {
 		}
 	}
 
-	// Initialise le HEAD pour pointer vers la branche master
-	headContent := "ref: refs/heads/master"
+	// Initialise le HEAD pour pointer vers la branche main
+	headContent := "ref: refs/heads/main"
 	if err := os.WriteFile(".goit/HEAD", []byte(headContent), 0644); err != nil {
 		fmt.Printf("Failed to create HEAD: %v\n", err)
 		return
@@ -92,10 +92,10 @@ func Commit(message string) {
 			return
 		}
 	} else {
-		// Si HEAD contient directement un hash, utiliser master par défaut
-		refFile := filepath.Join(".goit", "refs", "heads", "master")
+		// Si HEAD contient directement un hash, utiliser main par défaut
+		refFile := filepath.Join(".goit", "refs", "heads", "main")
 		if err := os.WriteFile(refFile, []byte(commitHash), 0644); err != nil {
-			fmt.Printf("Failed to update master reference: %v\n", err)
+			fmt.Printf("Failed to update main reference: %v\n", err)
 			return
 		}
 	}

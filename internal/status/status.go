@@ -11,6 +11,12 @@ import (
 	"strings"
 )
 
+const (
+	colorRed   = "\033[31m"
+	colorGreen = "\033[32m"
+	colorReset = "\033[0m"
+)
+
 /**
  * Calcule le hash SHA1 d'un fichier
  * Utilisée pour comparer les versions de fichiers
@@ -134,7 +140,7 @@ func ShowStatus() {
 	if len(indexEntries) > 0 {
 		fmt.Println("Changes to be committed:")
 		for filename := range indexEntries {
-			fmt.Printf("  new file:   %s\n", filename)
+			fmt.Printf("  %snew file:   %s%s\n", colorGreen, filename, colorReset)
 		}
 		fmt.Println()
 	}
@@ -193,7 +199,7 @@ func ShowStatus() {
 	if len(modified) > 0 {
 		fmt.Println("Changes not staged for commit:")
 		for _, file := range modified {
-			fmt.Printf("  modified:   %s\n", file)
+			fmt.Printf("  %smodified:   %s%s\n", colorRed, file, colorReset)
 		}
 		fmt.Println()
 	}
@@ -201,7 +207,7 @@ func ShowStatus() {
 	if len(untracked) > 0 {
 		fmt.Println("Untracked files:")
 		for _, file := range untracked {
-			fmt.Printf("  %s\n", file)
+			fmt.Printf("  %s%s%s\n", colorRed, file, colorReset)
 		}
 		fmt.Println()
 		fmt.Println("Use 'goit add <file>' to include in what will be committed")

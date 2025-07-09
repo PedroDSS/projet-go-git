@@ -23,8 +23,9 @@ Commands:
 	log                    Show detailed commit history
 	log --compact          Show commit history compact
 	status                 Show changes in the working directory
-	branch <name>          Create a new branch
+	branch <name>          List branches or create a new branch
 	checkout <name>        Switch to a branch
+	diff <file>            Show differences between working directory and index
 	help                   Show this help message
 
 Examples:
@@ -36,6 +37,7 @@ Examples:
 	goit status
 	goit branch feature-1
 	goit checkout feature-1
+	goit diff fichier.txt
 `)
 }
 
@@ -45,7 +47,21 @@ func main() {
 		return
 	}
 
-	switch os.Args[1] {
+	// Vérifie qu'un repository est existant pour les commandes dans la liste.
+	needsRepo := []string{"add", "commit", "log", "status", "branch", "checkout", "diff"}
+	cmd := os.Args[1]
+
+	for _, needRepo := range needsRepo {
+		if cmd == needRepo {
+			if !repository.IsGoitRepo() {
+				fmt.Println("fatal: not a goit repository (or any of the parent directories)")
+				os.Exit(1)
+			}
+			break
+		}
+	}
+
+	switch cmd {
 	case "init":
 		repository.Init()
 	case "add":
@@ -70,18 +86,26 @@ func main() {
 		status.ShowStatus()
 	case "branch":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: goit branch <name>")
-			return
+			branch.List()
+		} else {
+			branch.Create(os.Args[2])
 		}
-		branch.Create(os.Args[2])
 	case "checkout":
 		if len(os.Args) < 3 {
 			fmt.Println("Usage: goit checkout <branch>")
 			return
 		}
 		checkout.Switch(os.Args[2])
+	case "diff":
+		var filename string
+		if len(os.Args) >= 3 {
+			filename = os.Args[2]
+		}
+		status.ShowDiff(filename)
+	case "help":
+		printHelp()
 	default:
-		fmt.Println("Commande inconnue:", os.Args[1])
+		fmt.Println("Unknown command:", os.Args[1])
 		printHelp()
 	}
 }

@@ -162,22 +162,40 @@ func getCommitHash() string {
 func parseCommitData(data string) CommitInfo {
 	lines := strings.Split(data, "\n")
 	var info CommitInfo
+	foundEmptyLine := false
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, " date ") {
-			dateStr := strings.TrimPrefix(line, " date ")
+
+		// Parser la date
+		if strings.HasPrefix(line, "date ") {
+			dateStr := strings.TrimPrefix(line, "date ")
 			if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
 				info.Date = t.Format("02/01/2006 15:04")
 			} else {
 				info.Date = dateStr
 			}
-		} else if !strings.HasPrefix(line, "commit") &&
-			!strings.HasPrefix(line, " tree ") &&
-			!strings.HasPrefix(line, " date ") &&
-			!strings.HasPrefix(line, "parent ") &&
-			line != "" {
-			info.Message = line
+		}
+
+		// Détecter la ligne vide qui sépare les métadonnées du message
+		if line == "" {
+			foundEmptyLine = true
+			continue
+		}
+
+		// Après la ligne vide, tout est considéré comme le message
+		if foundEmptyLine && line != "" {
+			// Nettoyer le message des caractères bizarres
+			message := strings.TrimSpace(line)
+			// Supprimer les caractères non imprimables
+			var cleanMessage strings.Builder
+			for _, r := range message {
+				if r >= 32 && r != 127 { // Caractères imprimables
+					cleanMessage.WriteRune(r)
+				}
+			}
+			info.Message = strings.TrimSpace(cleanMessage.String())
+			break
 		}
 	}
 

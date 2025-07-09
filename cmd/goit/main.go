@@ -29,6 +29,7 @@ Commands:
 	checkout <name>        Switch to a branch
 	diff <file>            Show differences between working directory and index
 	merge <branch>         Merge a branch into the current branch
+	resolve                Finalize merge after resolving conflicts
 	help                   Show this help message
 
 Examples:
@@ -42,6 +43,7 @@ Examples:
 	goit checkout feature-1
 	goit diff fichier.txt
 	goit merge feature-1
+	goit resolve
 `)
 }
 
@@ -114,6 +116,10 @@ func main() {
 			return
 		}
 		if err := merge.Merge(os.Args[2]); err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
+	case "resolve":
+		if err := merge.Resolve(); err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
 	case "help":

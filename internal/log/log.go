@@ -236,7 +236,7 @@ func readCommitObject(hash string) ([]byte, error) {
 func ShowLog() {
 	hash := getCommitHash()
 	if hash == "" {
-		fmt.Println("Unable to read HEAD")
+		fmt.Println("No commits yet")
 		return
 	}
 
@@ -264,7 +264,7 @@ func ShowLog() {
 func ShowLogShort() {
 	hash := getCommitHash()
 	if hash == "" {
-		fmt.Println("Unable to read HEAD")
+		fmt.Println("No commits yet")
 		return
 	}
 

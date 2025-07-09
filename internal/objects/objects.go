@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+/**
+ * Calcule le hash SHA1 d'un contenu
+ */
+func HashContent(content string) string {
+	hash := sha1.Sum([]byte(content))
+	return fmt.Sprintf("%x", hash[:])
+}
+
 func CreateTree() string {
 	indexContent, err := os.ReadFile(".goit/index")
 	if err != nil {

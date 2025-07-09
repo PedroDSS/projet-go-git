@@ -8,6 +8,7 @@ import (
 	"projet-go-git/internal/checkout"
 	"projet-go-git/internal/index"
 	"projet-go-git/internal/log"
+	"projet-go-git/internal/merge"
 	"projet-go-git/internal/repository"
 	"projet-go-git/internal/status"
 )
@@ -23,9 +24,11 @@ Commands:
 	log                    Show detailed commit history
 	log --compact          Show commit history compact
 	status                 Show changes in the working directory
-	branch <name>          List branches or create a new branch
+	branch                 List branches
+	branch <name>          Create a new branch
 	checkout <name>        Switch to a branch
 	diff <file>            Show differences between working directory and index
+	merge <branch>         Merge a branch into the current branch
 	help                   Show this help message
 
 Examples:
@@ -38,6 +41,7 @@ Examples:
 	goit branch feature-1
 	goit checkout feature-1
 	goit diff fichier.txt
+	goit merge feature-1
 `)
 }
 
@@ -48,7 +52,7 @@ func main() {
 	}
 
 	// Vérifie qu'un repository est existant pour les commandes dans la liste.
-	needsRepo := []string{"add", "commit", "log", "status", "branch", "checkout", "diff"}
+	needsRepo := []string{"add", "commit", "log", "status", "branch", "checkout", "diff", "merge"}
 	cmd := os.Args[1]
 
 	for _, needRepo := range needsRepo {
@@ -95,13 +99,23 @@ func main() {
 			fmt.Println("Usage: goit checkout <branch>")
 			return
 		}
-		checkout.Switch(os.Args[2])
+		if err := checkout.Checkout(os.Args[2]); err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
 	case "diff":
 		var filename string
 		if len(os.Args) >= 3 {
 			filename = os.Args[2]
 		}
 		status.ShowDiff(filename)
+	case "merge":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: goit merge <branch>")
+			return
+		}
+		if err := merge.Merge(os.Args[2]); err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
 	case "help":
 		printHelp()
 	default:

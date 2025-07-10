@@ -331,8 +331,20 @@ func addSecondParent(commitHash, parentHash string) error {
 		return err
 	}
 
-	newData := string(data) + fmt.Sprintf("parent %s\n", parentHash)
+	lines := strings.Split(string(data), "\n")
+	var newLines []string
 
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			// Insérer le parent avant la ligne vide
+			newLines = append(newLines, fmt.Sprintf("parent %s", parentHash))
+			newLines = append(newLines, line)
+		} else {
+			newLines = append(newLines, line)
+		}
+	}
+
+	newData := strings.Join(newLines, "\n")
 	return os.WriteFile(path, []byte(newData), 0644)
 }
 
@@ -343,118 +355,6 @@ func isMergeInProgress() bool {
 	repoRoot := findRepoRoot()
 	_, err := os.Stat(filepath.Join(repoRoot, ".goit", "MERGE_HEAD"))
 	return err == nil
-}
-
-/**
- * Finalise un merge après résolution des conflits
- * Crée le commit de merge final
- */
-func Resolve() error {
-	if !isMergeInProgress() {
-		return fmt.Errorf("no merge conflicts to resolve")
-	}
-
-	repoRoot := findRepoRoot()
-	indexPath := filepath.Join(repoRoot, ".goit", "index")
-	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
-		os.WriteFile(indexPath, []byte(""), 0644)
-	}
-
-	forceAddAllFiles()
-
-	treeHash := objects.CreateTree()
-
-	currentHash, err := repository.GetCurrentCommitHash()
-	if err != nil {
-		return fmt.Errorf("error getting current commit: %v", err)
-	}
-
-	mergeHeadPath := filepath.Join(repoRoot, ".goit", "MERGE_HEAD")
-	mergeHeadContent, err := os.ReadFile(mergeHeadPath)
-	branchName := "unknown"
-	if err == nil {
-		branchesDir := filepath.Join(repoRoot, ".goit", "refs", "heads")
-		entries, err := os.ReadDir(branchesDir)
-		if err == nil {
-			for _, entry := range entries {
-				if !entry.IsDir() {
-					branchPath := filepath.Join(branchesDir, entry.Name())
-					branchContent, err := os.ReadFile(branchPath)
-					if err == nil && strings.TrimSpace(string(branchContent)) == strings.TrimSpace(string(mergeHeadContent)) {
-						branchName = entry.Name()
-						break
-					}
-				}
-			}
-		}
-	}
-
-	message := getMergeMessage(branchName)
-	commitHash := objects.CreateCommit(treeHash, message, currentHash)
-
-	currentBranch, err := repository.GetCurrentBranch()
-	if err != nil {
-		return err
-	}
-
-	branchRefPath := filepath.Join(repoRoot, ".goit", "refs", "heads", currentBranch)
-	if err := os.WriteFile(branchRefPath, []byte(commitHash), 0644); err != nil {
-		return fmt.Errorf("failed to update branch reference: %v", err)
-	}
-
-	os.Remove(filepath.Join(repoRoot, ".goit", "MERGE_HEAD"))
-
-	syncIndexWithCommit(commitHash)
-
-	fmt.Printf("Merge completed: %s\n", commitHash[:8])
-	return nil
-}
-
-/**
- * Force l'ajout de tous les fichiers du répertoire de travail
- */
-func forceAddAllFiles() {
-	repoRoot := findRepoRoot()
-	filepath.Walk(repoRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			if strings.Contains(path, ".goit") || strings.Contains(path, ".git") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		if strings.Contains(path, "goit") || strings.Contains(path, ".git") {
-			return nil
-		}
-
-		addFileToIndex(path)
-		return nil
-	})
-}
-
-/**
- * Ajoute un fichier à l'index
- */
-func addFileToIndex(filename string) {
-	repoRoot := findRepoRoot()
-	indexPath := filepath.Join(repoRoot, ".goit", "index")
-	indexContent, _ := os.ReadFile(indexPath)
-
-	content, err := os.ReadFile(filename)
-	if err != nil {
-		return
-	}
-	hash := objects.HashContent(string(content))
-
-	relPath, _ := filepath.Rel(repoRoot, filename)
-	newEntry := fmt.Sprintf("%s %s\n", hash, relPath)
-	newIndexContent := string(indexContent) + newEntry
-
-	os.WriteFile(indexPath, []byte(newIndexContent), 0644)
 }
 
 // Trouve la racine du repo (là où il y a .goit)
@@ -481,23 +381,102 @@ func getMergeMessage(branchName string) string {
 }
 
 /**
- * Synchronise l'index avec un commit
+ * Finalise un merge après résolution des conflits
+ * Crée le commit de merge final
  */
-func syncIndexWithCommit(commitHash string) {
+func Resolve() error {
+	if !isMergeInProgress() {
+		return fmt.Errorf("no merge conflicts to resolve")
+	}
+
+	repoRoot := findRepoRoot()
+
+	indexPath := filepath.Join(repoRoot, ".goit", "index")
+	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
+		os.WriteFile(indexPath, []byte(""), 0644)
+	}
+
+	// Utiliser seulement les fichiers déjà dans l'index
+	treeHash := objects.CreateTree()
+
+	currentHash, err := repository.GetCurrentCommitHash()
+	if err != nil {
+		return fmt.Errorf("error getting current commit: %v", err)
+	}
+
+	// Récupérer le hash de la branche mergée
+	mergeHeadPath := filepath.Join(repoRoot, ".goit", "MERGE_HEAD")
+	mergeHeadContent, err := os.ReadFile(mergeHeadPath)
+	if err != nil {
+		return fmt.Errorf("error reading MERGE_HEAD: %v", err)
+	}
+	branchHash := strings.TrimSpace(string(mergeHeadContent))
+
+	// Trouver le nom de la branche
+	branchName := "unknown"
+	branchesDir := filepath.Join(repoRoot, ".goit", "refs", "heads")
+	entries, err := os.ReadDir(branchesDir)
+	if err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				branchPath := filepath.Join(branchesDir, entry.Name())
+				branchContent, err := os.ReadFile(branchPath)
+				if err == nil && strings.TrimSpace(string(branchContent)) == branchHash {
+					branchName = entry.Name()
+					break
+				}
+			}
+		}
+	}
+
+	message := getMergeMessage(branchName)
+	commitHash := objects.CreateCommit(treeHash, message, currentHash)
+
+	if err := addSecondParent(commitHash, branchHash); err != nil {
+		return fmt.Errorf("error adding second parent: %v", err)
+	}
+
+	// Mettre à jour la référence de la branche actuelle
+	currentBranch, err := repository.GetCurrentBranch()
+	if err != nil {
+		return err
+	}
+
+	branchRefPath := filepath.Join(repoRoot, ".goit", "refs", "heads", currentBranch)
+	if err := os.WriteFile(branchRefPath, []byte(commitHash), 0644); err != nil {
+		return fmt.Errorf("failed to update branch reference: %v", err)
+	}
+
+	os.Remove(filepath.Join(repoRoot, ".goit", "MERGE_HEAD"))
+
+	if err := syncIndexWithCommit(commitHash); err != nil {
+		return fmt.Errorf("error syncing index: %v", err)
+	}
+
+	fmt.Printf("Merge completed: %s\n", commitHash[:8])
+	return nil
+}
+
+func syncIndexWithCommit(commitHash string) error {
 	repoRoot := findRepoRoot()
 	indexPath := filepath.Join(repoRoot, ".goit", "index")
 
 	treeHash, err := getCommitTree(commitHash)
 	if err != nil {
-		return
+		return fmt.Errorf("error getting commit tree: %v", err)
 	}
 
 	files := getTreeFiles(treeHash)
 
-	var indexContent strings.Builder
+	var indexLines []string
 	for filename, hash := range files {
-		indexContent.WriteString(fmt.Sprintf("%s %s\n", hash, filename))
+		indexLines = append(indexLines, fmt.Sprintf("%s %s", hash, filename))
 	}
 
-	os.WriteFile(indexPath, []byte(indexContent.String()), 0644)
+	content := strings.Join(indexLines, "\n")
+	if len(indexLines) > 0 {
+		content += "\n"
+	}
+
+	return os.WriteFile(indexPath, []byte(content), 0644)
 }

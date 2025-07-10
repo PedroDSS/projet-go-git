@@ -77,8 +77,66 @@ Goit implémente les fonctionnalités essentielles de Git en utilisant une appro
 - Change de branche active
 - Met à jour la référence HEAD
 - Vérifie l'existence de la branche cible
+- **Protection** : Empêche le checkout si des modifications non commitées existent
 
-### 4. Commandes Utilitaires
+### 4. Gestion des Merges et Conflits
+
+#### `goit merge <branche>`
+- Fusionne une branche dans la branche actuelle
+- **Fast-forward** : Si possible, déplace simplement la référence
+- **Merge commit** : Crée un commit de fusion avec deux parents
+- **Détection automatique** : Trouve l'ancêtre commun pour optimiser la fusion
+- **Gestion des conflits** : Détecte et marque les conflits automatiquement
+
+#### Gestion des Conflits
+Quand un conflit est détecté :
+```
+CONFLICT (content): Merge conflict in fichier.txt
+Automatic merge failed
+ Fix conflicts and then commit the result
+```
+
+**Format des conflits** :
+```
+************** main
+Contenu de la branche main
+Ligne 1
+Ligne 2
+=========
+Contenu de la branche feature
+Ligne 1
+Ligne 2 modifiée
+************** feature
+```
+
+#### `goit resolve`
+- Finalise un merge après résolution des conflits
+- Crée le commit de merge final
+- Synchronise l'index avec le nouveau commit
+- Nettoie les fichiers temporaires de merge
+
+#### Workflow de Merge Complet
+```bash
+# Créer et modifier des branches
+goit branch feature
+goit checkout feature
+echo "Nouveau contenu" > fichier.txt
+goit add fichier.txt
+goit commit -m "Modification sur feature"
+
+goit checkout main
+echo "Autre modification" > fichier.txt
+goit add fichier.txt
+goit commit -m "Modification sur main"
+
+# Tenter le merge
+goit merge feature
+
+# Si conflit, résoudre manuellement puis
+goit resolve
+```
+
+### 5. Commandes Utilitaires
 
 #### `goit help`
 - Affiche la liste des commandes disponibles
@@ -244,20 +302,15 @@ goit checkout main
 
 ### Limitations Actuelles
 
-1. **Pas de Merge** : Fusion des branches non implémentée
-2. **Diff Basique** : Pas de diff ligne par ligne
-3. **Pas de Remote** : Aucune opération réseau
-4. **Checkout Incomplet** : Ne restaure pas les fichiers
-5. **Pas de Tags** : Seules les branches sont supportées
-6. **Pas de .gitignore** : Patterns d'exclusion codés en dur
+1. **Diff Basique** : Pas de diff ligne par ligne
+2. **Pas de Remote** : Aucune opération réseau
+3. **Checkout Incomplet** : Ne restaure pas les fichiers
+4. **Pas de Tags** : Seules les branches sont supportées
+5. **Pas de .gitignore** : Patterns d'exclusion codés en dur
 
 ### Améliorations Futures Possibles
 
-1. **Implémentation du Merge**
-   - Stratégies de fusion (fast-forward, 3-way)
-   - Résolution de conflits
-
-2. **Amélioration du Diff**
+1. **Amélioration du Diff**
    - Algorithme de Myers pour diff ligne par ligne
    - Coloration syntaxique
 

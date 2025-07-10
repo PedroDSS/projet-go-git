@@ -121,6 +121,9 @@ func main() {
 	case "resolve":
 		if err := merge.Resolve(); err != nil {
 			fmt.Printf("Error: %v\n", err)
+		} else {
+			index.CleanupAfterMerge()
+			fmt.Println("Merge resolved successfully")
 		}
 	case "help":
 		printHelp()
